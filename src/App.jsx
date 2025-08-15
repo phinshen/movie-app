@@ -1,4 +1,4 @@
-import { updateSearchCount } from "./appwrite";
+import { getTrendingMovies, updateSearchCount } from "./appwrite";
 import MovieCard from "./components/MovieCard";
 import Search from "./components/Search";
 import Spinner from "./components/Spinner";
@@ -19,10 +19,15 @@ const API_OPTIONS = {
 
 const App = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
   const [movieList, setMovieList] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
+  const [trendingMovies, setTrendingMovies] = useState([]);
+  const [trendingMoviesLoading, setTrendingMoviesLoading] = useState(false);
+  const [trendingMoviesError, setTrendingMoviesError] = useState("");
 
   useDebounce(() => setDebouncedSearchTerm(searchTerm), 500, [searchTerm]);
 
@@ -59,9 +64,29 @@ const App = () => {
     }
   };
 
+  const loadTrendingMovies = async () => {
+    setTrendingMoviesLoading(true);
+    setTrendingMoviesError("");
+    try {
+      const movies = await getTrendingMovies();
+      setTrendingMovies(movies);
+    } catch (error) {
+      console.error(`Error fetching trending movies: ${error}`);
+      setTrendingMoviesError(
+        "Failed to fetch trending movies. Please try again later."
+      );
+    } finally {
+      setTrendingMoviesLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchMovies(debouncedSearchTerm);
   }, [debouncedSearchTerm]);
+
+  useEffect(() => {
+    loadTrendingMovies();
+  }, []);
 
   return (
     <main>
@@ -76,8 +101,38 @@ const App = () => {
           </h1>
           <Search searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
         </header>
+
+        {trendingMovies.length > 0 && (
+          <section className="trending">
+            <h2>Trending Movies</h2>
+            {trendingMoviesLoading ? (
+              <Spinner />
+            ) : trendingMoviesError ? (
+              <p classname="text-red-500">{errorMessage}</p>
+            ) : (
+              <ul>
+                {trendingMovies.map((movie, index) => (
+                  <li key={movie.$id}>
+                    <p>{index + 1}</p>
+                    <img
+                      src={
+                        movie.poster_url ? movie.poster_url : "/no-movie.png"
+                      }
+                      alt={movie.title}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = "/no-movie.png";
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
         <section className="all-movies">
-          <h2 className="mt-[40px]">All Movies</h2>
+          <h2>All Movies</h2>
           {loading ? (
             <Spinner />
           ) : errorMessage ? (
